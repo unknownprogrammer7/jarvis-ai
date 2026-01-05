@@ -3,3 +3,4 @@ openai
 pypdf
 docx2txt
 pyttsx3
+pip install fastapi uvicorn python-multipart requests-oauthlib gradio openai
