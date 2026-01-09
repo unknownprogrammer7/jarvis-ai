@@ -1,3 +1,5 @@
+faiss-cpu
+numpy
 fastapi
 gradio
 openai
