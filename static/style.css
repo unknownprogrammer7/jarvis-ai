@@ -1,1 +1,54 @@
+/* ===== Global ===== */
+body {
+    background: #0f0f0f;
+    color: white;
+    font-family: system-ui, sans-serif;
+}
 
+/* ===== Chat area ===== */
+#chatbot {
+    height: calc(100vh - 85px);
+    overflow-y: auto;
+    padding-bottom: 120px;
+}
+
+/* ===== Input bar ===== */
+.input-row {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background: #121212;
+    padding: 10px;
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+}
+
+/* ===== Textbox ===== */
+textarea {
+    border-radius: 20px !important;
+    background: #1e1e1e !important;
+    color: white !important;
+    font-size: 16px !important;
+    padding: 12px !important;
+}
+
+/* ===== Buttons ===== */
+button {
+    border-radius: 50% !important;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 18px;
+}
+
+/* ===== File upload ===== */
+input[type="file"] {
+    color: white;
+}
+
+/* ===== Mobile optimization ===== */
+@media (max-width: 600px) {
+    textarea {
+        font-size: 15px !important;
+    }
+}
