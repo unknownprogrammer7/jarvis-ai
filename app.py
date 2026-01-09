@@ -141,30 +141,33 @@ def chat(msg, history, user, file):
             reply += chunk.choices[0].delta.content
             yield history + [(msg, reply)], ""
 
-# ================= UI + MOBILE CSS =================
-css = """
-body{background:#0f0f0f}
-#chatbot{height:calc(100vh - 90px)}
-.input-row{position:fixed;bottom:0;width:100%;
-background:#0f0f0f;padding:8px;border-top:1px solid #222}
-textarea{border-radius:18px!important;font-size:16px}
-button{border-radius:50%!important;width:46px;height:46px}
-"""
-gr.HTML("""
-<link rel="manifest" href="/static/manifest.json">
-""")
+# ================Gradio No css
+# -----------------------------
+# GRADIO UI (NO CSS HERE)
+# -----------------------------
+with gr.Blocks() as app:
+    gr.Markdown("## 💬 Dexora AI")
 
-with gr.Blocks(css=css) as ui:
-    gr.Markdown("## 🤖 Dexora")
-    chatbox = gr.Chatbot(elem_id="chatbot")
-    user = gr.State("User")
+    username = gr.State("User")
+
+    chatbot = gr.Chatbot(
+        elem_id="chatbot",
+        height=450
+    )
 
     with gr.Row(elem_classes="input-row"):
-        msg = gr.Textbox(placeholder="Message Dexora...", scale=6)
-        file = gr.File(label="📎", scale=1)
+        msg = gr.Textbox(
+            placeholder="Message Dexora…",
+            show_label=False,
+            scale=8
+        )
         send = gr.Button("➤", scale=1)
 
-    send.click(chat, [msg, chatbox, user, file], [chatbox, msg])
-    msg.submit(chat, [msg, chatbox, user, file], [chatbox, msg])
+    send.click(chat, [msg, chatbot, username], [chatbot, msg])
+    msg.submit(chat, [msg, chatbot, username], [chatbot, msg])
 
-app = gr.mount_gradio_app(app, ui, path="/chat")
+# -----------------------------
+# RUN
+# -----------------------------
+if __name__ == "__main__":
+    app.launch()
