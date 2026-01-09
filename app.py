@@ -146,53 +146,92 @@ def chat(message, history, username, file):
 
     history.append((message, reply))
     return history, ""
-
-# =========================================================
-# CHATGPT-LIKE CSS
-# =========================================================
-custom_css = """
+    /* ===== GLOBAL ===== */
 body {
     background-color: #0f0f0f;
+    margin: 0;
+    padding: 0;
 }
 
 .gradio-container {
-    max-width: 900px;
-    margin: auto;
+    max-width: 100%;
+    padding: 0;
 }
 
+/* ===== CHAT AREA ===== */
 #chatbot {
     background-color: #0f0f0f;
+    height: calc(100vh - 90px) !important;
+    overflow-y: auto;
+    padding: 12px;
 }
 
+/* Chat bubbles */
 .message.user {
     background: #1f2937;
-    border-radius: 14px;
-    padding: 12px;
+    border-radius: 16px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    font-size: 15px;
 }
 
 .message.bot {
     background: #111827;
-    border-radius: 14px;
-    padding: 12px;
+    border-radius: 16px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    font-size: 15px;
 }
 
+/* ===== INPUT BAR (STICKY) ===== */
+.input-row {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background: #0f0f0f;
+    padding: 10px;
+    border-top: 1px solid #1f2937;
+    display: flex;
+    gap: 6px;
+}
+
+/* Textbox */
 textarea {
     background-color: #111827 !important;
     color: white !important;
-    border-radius: 12px !important;
+    border-radius: 18px !important;
+    padding: 12px !important;
+    font-size: 16px !important;
 }
 
+/* Buttons */
 button {
     background: #10a37f !important;
     color: white !important;
-    border-radius: 12px !important;
+    border-radius: 50% !important;
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 18px !important;
     font-weight: bold;
 }
 
+/* File upload */
 input[type="file"] {
     color: white;
 }
-"""
+
+/* ===== MOBILE ONLY ===== */
+@media (max-width: 600px) {
+    .message.user,
+    .message.bot {
+        font-size: 16px;
+    }
+
+    button {
+        width: 48px !important;
+        height: 48px !important;
+    }
+}
 
 # =========================================================
 # GRADIO UI (CHATGPT STYLE)
