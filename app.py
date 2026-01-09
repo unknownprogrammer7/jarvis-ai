@@ -19,9 +19,9 @@ import speech_recognition as sr
 # -----------------------------
 import os
 
-GOOGLE_CLIENT_ID = os.getenv("701968721814-eof81fgbm6vl3keunbofdjthacu2h99a.apps.googleusercontent.com")
-GOOGLE_CLIENT_SECRET = os.getenv("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")
-OPENAI_API_KEY = os.getenv("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")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 REDIRECT_URI = os.getenv("REDIRECT_URI", "https://dexora-ai.onrender.com/auth/google/callback")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
