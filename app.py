@@ -1,6 +1,3 @@
-# -----------------------------
-# IMPORTS
-# -----------------------------
 import os, json
 from datetime import datetime
 
@@ -12,33 +9,31 @@ from requests_oauthlib import OAuth2Session
 from openai import OpenAI
 from pypdf import PdfReader
 import docx2txt
-import speech_recognition as sr
 
-# -----------------------------
-# CONFIG
-# -----------------------------
-import os
-
+# =========================================================
+# ENVIRONMENT VARIABLES (SET IN RENDER)
+# =========================================================
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-REDIRECT_URI = os.getenv("REDIRECT_URI", "https://dexora-ai.onrender.com/auth/google/callback")
+REDIRECT_URI = os.getenv("REDIRECT_URI")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
+
 USER_FILE = "users.json"
 MEMORY_FILE = "memory.json"
 
-# -----------------------------
-# INIT FILES
-# -----------------------------
+# =========================================================
+# INIT STORAGE FILES
+# =========================================================
 for f in [USER_FILE, MEMORY_FILE]:
     if not os.path.exists(f):
         with open(f, "w") as fp:
             json.dump({}, fp)
 
-# -----------------------------
+# =========================================================
 # HELPERS
-# -----------------------------
+# =========================================================
 def load_json(file):
     with open(file, "r") as f:
         return json.load(f)
@@ -47,53 +42,43 @@ def save_json(file, data):
     with open(file, "w") as f:
         json.dump(data, f, indent=2)
 
-def ethics_guard(user_input):
-    banned = ["kill","bomb","terrorist","hack bank","rape","suicide","drugs","weapon","murder"]
+def ethics_guard(text):
+    banned = ["kill", "bomb", "terrorist", "hack", "rape", "weapon", "suicide"]
     for w in banned:
-        if w in user_input.lower():
-            return False, "⚠️ I cannot assist with harmful or illegal requests."
+        if w in text.lower():
+            return False, "⚠️ I can’t help with harmful or illegal requests."
     return True, ""
 
-def update_memory(username, user_input):
+def update_memory(user, text):
     memory = load_json(MEMORY_FILE)
-    memory.setdefault(username, {})
+    memory.setdefault(user, {})
 
-    text = user_input.lower()
-    if "my name is" in text:
-        memory[username]["name"] = user_input.split("is")[-1].strip()
-    if "i am from" in text:
-        memory[username]["location"] = user_input.split("from")[-1].strip()
+    t = text.lower()
+    if "my name is" in t:
+        memory[user]["name"] = text.split("is")[-1].strip()
+    if "i am from" in t:
+        memory[user]["location"] = text.split("from")[-1].strip()
 
     save_json(MEMORY_FILE, memory)
-    return memory[username]
+    return memory[user]
 
 def extract_text(file):
-    if file is None: return ""
+    if not file:
+        return ""
     if file.name.endswith(".pdf"):
         reader = PdfReader(file.name)
-        return "\n".join([p.extract_text() for p in reader.pages if p.extract_text()])
+        return "\n".join(p.extract_text() for p in reader.pages if p.extract_text())
     if file.name.endswith(".docx"):
         return docx2txt.process(file.name)
     if file.name.endswith(".txt"):
-        with open(file.name, "r", encoding="utf-8") as f:
-            return f.read()
-    return "Unsupported file format"
+        return file.read().decode("utf-8")
+    return ""
 
-def voice_to_text(audio_file):
-    if audio_file is None: return ""
-    recognizer = sr.Recognizer()
-    with sr.AudioFile(audio_file) as source:
-        audio = recognizer.record(source)
-    try:
-        return recognizer.recognize_google(audio)
-    except:
-        return ""
-
-# -----------------------------
-# FASTAPI APP (Google OAuth)
-# -----------------------------
+# =========================================================
+# FASTAPI + GOOGLE LOGIN
+# =========================================================
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key="dexora-secret-key")
+app.add_middleware(SessionMiddleware, secret_key="dexora-session-key")
 
 AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URI = "https://oauth2.googleapis.com/token"
@@ -106,87 +91,135 @@ async def root(request: Request):
     return RedirectResponse("/login")
 
 @app.get("/login")
-async def login_page():
-    oauth = OAuth2Session(GOOGLE_CLIENT_ID, redirect_uri=REDIRECT_URI, scope=["openid","email","profile"])
-    auth_url, state = oauth.authorization_url(AUTH_URI, access_type="offline", prompt="select_account")
+async def login():
+    oauth = OAuth2Session(
+        GOOGLE_CLIENT_ID,
+        redirect_uri=REDIRECT_URI,
+        scope=["openid", "email", "profile"]
+    )
+    auth_url, _ = oauth.authorization_url(AUTH_URI)
     return RedirectResponse(auth_url)
 
 @app.get("/auth/google/callback")
-async def google_callback(request: Request):
+async def callback(request: Request):
     oauth = OAuth2Session(GOOGLE_CLIENT_ID, redirect_uri=REDIRECT_URI)
-    token = oauth.fetch_token(TOKEN_URI, client_secret=GOOGLE_CLIENT_SECRET, authorization_response=str(request.url))
-    resp = oauth.get(USERINFO_URI)
-    user_info = resp.json()
-    request.session["user"] = user_info
+    oauth.fetch_token(
+        TOKEN_URI,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        authorization_response=str(request.url)
+    )
+    user = oauth.get(USERINFO_URI).json()
+    request.session["user"] = user
     return RedirectResponse("/chat")
 
-# -----------------------------
-# CHAT FUNCTION
-# -----------------------------
-def chat(user_message, history, username, uploaded_file=None):
-    allowed, warning = ethics_guard(user_message)
+# =========================================================
+# CHAT LOGIC
+# =========================================================
+def chat(message, history, username, file):
+    if history is None:
+        history = []
+
+    allowed, warning = ethics_guard(message)
     if not allowed:
-        history.append((user_message, warning))
+        history.append((message, warning))
         return history, ""
 
-    if history is None: history = []
-    if not username: username = "User"
+    memory = update_memory(username, message)
 
-    user_mem = update_memory(username, user_message)
+    if file:
+        message += "\n\n" + extract_text(file)
 
-    # Handle uploaded file text
-    if uploaded_file:
-        file_text = extract_text(uploaded_file)
-        user_message += f"\n[FILE CONTENT]: {file_text}"
-
-    # Memory replies
-    if "what is my name" in user_message.lower() and "name" in user_mem:
-        reply = f"Your name is {user_mem['name']} 😊"
-    elif "where am i from" in user_message.lower() and "location" in user_mem:
-        reply = f"You are from {user_mem['location']} 🌍"
-    elif "year" in user_message.lower():
-        now = datetime.now()
-        reply = f"The current year is {now.year}."
+    if "what is my name" in message.lower() and "name" in memory:
+        reply = f"Your name is {memory['name']}."
     else:
-        messages = [{"role":"system","content":"You are Dexora, a clever AI assistant."}]
-        for u,a in history:
-            messages.append({"role":"user","content":u})
-            messages.append({"role":"assistant","content":a})
-        messages.append({"role":"user","content":user_message})
+        msgs = [{"role": "system", "content": "You are Dexora, an intelligent AI assistant."}]
+        for u, a in history:
+            msgs.append({"role": "user", "content": u})
+            msgs.append({"role": "assistant", "content": a})
+        msgs.append({"role": "user", "content": message})
 
-        response = client.chat.completions.create(
+        res = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=messages
+            messages=msgs
         )
-        reply = response.choices[0].message.content
+        reply = res.choices[0].message.content
 
-    if "name" in user_mem:
-        reply = f"{user_mem['name']}, {reply}"
+    history.append((message, reply))
+    return history, ""
 
-    history.append((user_message, reply))
-    return history, ""  # text-only reply
+# =========================================================
+# CHATGPT-LIKE CSS
+# =========================================================
+custom_css = """
+body {
+    background-color: #0f0f0f;
+}
 
-# -----------------------------
-# GRADIO UI
-# -----------------------------
-with gr.Blocks() as chat_app:
-    gr.Markdown("## Dexora AI")
+.gradio-container {
+    max-width: 900px;
+    margin: auto;
+}
 
-    username_state = gr.State("User")
-    chatbot = gr.Chatbot(elem_id="chatbox", height=400)
+#chatbot {
+    background-color: #0f0f0f;
+}
+
+.message.user {
+    background: #1f2937;
+    border-radius: 14px;
+    padding: 12px;
+}
+
+.message.bot {
+    background: #111827;
+    border-radius: 14px;
+    padding: 12px;
+}
+
+textarea {
+    background-color: #111827 !important;
+    color: white !important;
+    border-radius: 12px !important;
+}
+
+button {
+    background: #10a37f !important;
+    color: white !important;
+    border-radius: 12px !important;
+    font-weight: bold;
+}
+
+input[type="file"] {
+    color: white;
+}
+"""
+
+# =========================================================
+# GRADIO UI (CHATGPT STYLE)
+# =========================================================
+with gr.Blocks(css=custom_css) as chat_ui:
+    gr.Markdown("## 🤖 Dexora")
+
+    chatbot = gr.Chatbot(elem_id="chatbot", height=480)
+    username = gr.State("User")
 
     with gr.Row():
-        msg = gr.Textbox(placeholder="Type your message...", show_label=False, scale=2)
-        send = gr.Button("Send", scale=1)
-        voice = gr.Audio(source="microphone", type="filepath", label="🎤 Voice Input", scale=1)
-        upload = gr.File(label="📎 Upload File", type="file", scale=1)
+        msg = gr.Textbox(
+            placeholder="Send a message...",
+            show_label=False,
+            scale=4
+        )
+        upload = gr.File(
+            file_types=[".pdf", ".txt", ".docx"],
+            label="📎",
+            scale=1
+        )
+        send = gr.Button("➤", scale=1)
 
-    # Actions
-    voice.change(voice_to_text, voice, msg)
-    send.click(chat, [msg, chatbot, username_state, upload], [chatbot, msg])
-    msg.submit(chat, [msg, chatbot, username_state, upload], [chatbot, msg])
+    send.click(chat, [msg, chatbot, username, upload], [chatbot, msg])
+    msg.submit(chat, [msg, chatbot, username, upload], [chatbot, msg])
 
-# -----------------------------
-# Mount Gradio on FastAPI
-# -----------------------------
-app = gr.mount_gradio_app(app, chat_app, path="/chat")
+# =========================================================
+# MOUNT GRADIO
+# =========================================================
+app = gr.mount_gradio_app(app, chat_ui, path="/chat")
