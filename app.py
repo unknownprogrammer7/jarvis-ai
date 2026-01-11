@@ -179,6 +179,10 @@ all_history[user] = user_history
 save_chat_history(all_history)
 
 # ================= GRADIO =================
+# Load previous history for the current user
+all_history = load_chat_history()
+user_history = all_history.get(username_state.value, [])
+chatbot = gr.Chatbot(value=[(m["user"], m["assistant"]) for m in user_history], elem_id="chatbox", height=450)
 with gr.Blocks() as chat_app:
     gr.Markdown("## 💬 Dexora AI")
     chatbot = gr.Chatbot(height=450)
