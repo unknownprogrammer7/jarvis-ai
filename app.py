@@ -31,8 +31,23 @@ if os.path.exists(VECTOR_FILE):
 else:
     index = faiss.IndexFlatL2(DIM)
     texts = []
+CHAT_HISTORY_FILE = "chat_history.json"
+
+if not os.path.exists(CHAT_HISTORY_FILE):
+    with open(CHAT_HISTORY_FILE, "w") as f:
+        json.dump({}, f)
 
 # ================= HELPERS =================
+# -----------------------------
+# CHAT HISTORY HELPERS
+# -----------------------------
+def load_chat_history():
+    with open(CHAT_HISTORY_FILE, "r") as f:
+        return json.load(f)
+
+def save_chat_history(data):
+    with open(CHAT_HISTORY_FILE, "w") as f:
+        json.dump(data, f, indent=2)
 def load_memory():
     return json.load(open(MEMORY_FILE))
 
@@ -152,6 +167,16 @@ def chat(msg, history, request: gr.Request, file):
     reply = r.choices[0].message.content
     history.append((msg, reply))
     return history,""
+    # Load all chat history
+all_history = load_chat_history()
+user_history = all_history.get(user, [])
+
+# Append new message
+user_history.append({"user": msg, "assistant": reply})
+all_history[user] = user_history
+
+# Save back
+save_chat_history(all_history)
 
 # ================= GRADIO =================
 with gr.Blocks() as chat_app:
