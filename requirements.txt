@@ -9,3 +9,4 @@ pypdf
 docx2txt
 faiss-cpu
 numpy
+python-dotenv
