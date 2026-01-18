@@ -20,6 +20,8 @@ def read_file(file: UploadFile):
     if file.filename.endswith(".docx"):
         return docx2txt.process(file.file)
 
+
+from datetime import datetime
 # =========================
 # ENV
 # =========================
@@ -123,6 +125,14 @@ async def chat(request: Request, message: str = Form(...)):
         "user": message,
         "bot": "This is where AI reply will go"
     })
+
+    chats.setdefault(user["email"], [])
+
+chats[user["email"]].append({
+    "user": message,
+    "assistant": reply,  # your AI response
+    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+})
 
     save_chats(chats)
     return RedirectResponse("/", status_code=302)
