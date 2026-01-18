@@ -14,6 +14,12 @@ r = client.chat.completions.create(
 )
 reply = r.choices[0].message.content
 
+import docx2txt
+
+def read_file(file: UploadFile):
+    if file.filename.endswith(".docx"):
+        return docx2txt.process(file.file)
+
 # =========================
 # ENV
 # =========================
