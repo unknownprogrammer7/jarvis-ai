@@ -109,10 +109,45 @@ async def admin_dashboard(request: Request):
 async def home(request: Request):
     user = request.session.get("user")
     if not user or "email" not in user:
-        return HTMLResponse("""
-        <h2>Login</h2>
+    return HTMLResponse("""
+    <html>
+      <head>
+        <title>Login - Dexora AI</title>
+        <style>
+          body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+          }
+          img {
+            width: 200px;
+            margin-bottom: 20px;
+          }
+          button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 8px;
+            border: none;
+            background-color: #4caf50;
+            color: white;
+          }
+          button:hover {
+            background-color: #45a049;
+          }
+        </style>
+      </head>
+      <body>
+        <img src="https://sora.chatgpt.com/g/gen_01kfcjsjgeemgamp0av01jn3cf" alt="PRESENTED BY DIGWAR, NEXORA">
+        <h2>Login to Dexora AI</h2>
         <a href="/login"><button>Login with Google</button></a>
-        """)
+      </body>
+    </html>
+    """)
 
     chats = load_chats().get(user["email"], [])
     chat_html = "".join(
