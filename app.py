@@ -47,12 +47,15 @@ oauth.register(
 
 # =========================
 # HELPERS
-# =========================
+# ===============
 def load_chats():
     if not os.path.exists(CHAT_FILE):
         return {}
-    with open(CHAT_FILE, "r") as f:
-        return json.load(f)
+    try:
+        with open(CHAT_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
 def save_chats(data):
     with open(CHAT_FILE, "w") as f:
@@ -95,11 +98,9 @@ async def admin_dashboard(request: Request):
 @app.get("/")
 async def home(request: Request):
     user = request.session.get("user")
-    if not user:
-        return HTMLResponse("""
-            <h2>Dexora AI</h2>
-            <a href="/login">Login with Google</a>
-        """)
+
+    if not user or "email" not in user:
+        return HTMLResponse(""" ... your login HTML ... """)
 
     chats = load_chats().get(user["email"], [])
     chat_html = "".join(
@@ -138,6 +139,24 @@ async def chat(request: Request, message: str = Form(...)):
 
     chats = load_chats()
     chats.setdefault(user["email"], [])
+
+    try:
+        r = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": message}]
+        )
+        reply = r.choices[0].message.content
+    except Exception as e:
+        reply = "⚠️ AI service unavailable. Try again later."
+
+    chats[user["email"]].append({
+        "user": message,
+        "assistant": reply,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
+
+    save_chats(chats)
+    return RedirectResponse("/", status_code=302)
 
     # Call OpenAI GPT
     r = client.chat.completions.create(
