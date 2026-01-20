@@ -10,4 +10,4 @@ httpx                      # Required by Authlib
 openai                     # OpenAI API for chat responses
 numpy                      # For vector embedding (if using FAISS)
 faiss-cpu    
-tempfile        Optional: vector memory for AI
+tempfile        
